@@ -1,33 +1,66 @@
 import { Tabs } from 'expo-router';
-import React from 'react';
+import { Text } from 'react-native';
 
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
+export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
         headerShown: false,
-        tabBarButton: HapticTab,
-      }}>
+        tabBarStyle: {
+          backgroundColor: '#fff',
+          borderTopWidth: 1,
+          borderTopColor: '#e0e0e0',
+          height: 60,
+          paddingBottom: 8,
+          paddingTop: 8,
+        },
+        tabBarActiveTintColor: '#667eea',
+        tabBarInactiveTintColor: '#999',
+      }}
+    >
       <Tabs.Screen
-        name="index"
+        name="home"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          title: 'Нүүр',
+          tabBarIcon: ({ color, focused }) => (
+            <Text style={{ fontSize: 24 }}>{focused ? '🏠' : '🏡'}</Text>
+          ),
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="wallet"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: 'Хэтэвч',
+          tabBarIcon: ({ color, focused }) => (
+            <Text style={{ fontSize: 24 }}>{focused ? '💰' : '💵'}</Text>
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="loans"
+        options={{
+          title: 'Зээл',
+          tabBarIcon: ({ color, focused }) => (
+            <Text style={{ fontSize: 24 }}>{focused ? '📝' : '📄'}</Text>
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="history"
+        options={{
+          title: 'Түүх',
+          tabBarIcon: ({ color, focused }) => (
+            <Text style={{ fontSize: 24 }}>{focused ? '📋' : '📑'}</Text>
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Профайл',
+          tabBarIcon: ({ color, focused }) => (
+            <Text style={{ fontSize: 24 }}>{focused ? '👤' : '👥'}</Text>
+          ),
         }}
       />
     </Tabs>
