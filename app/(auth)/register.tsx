@@ -11,8 +11,11 @@ import {
     TextInput,
     TouchableOpacity,
     View,
+    ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { authAPI } from '../../services/api';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -27,36 +30,84 @@ export default function RegisterScreen() {
   });
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleRegister = async () => {
+  const validateInput = () => {
     if (
-      !formData.lastName ||
-      !formData.firstName ||
-      !formData.phone ||
-      !formData.registerNumber ||
-      !formData.password
+      !formData.lastName.trim() ||
+      !formData.firstName.trim() ||
+      !formData.phone.trim() ||
+      !formData.registerNumber.trim() ||
+      !formData.password.trim()
     ) {
       Alert.alert('Алдаа', 'Заавал бөглөх талбаруудыг бөглөнө үү');
-      return;
+      return false;
     }
 
     if (formData.password !== formData.confirmPassword) {
       Alert.alert('Алдаа', 'Нууц үг таарахгүй байна');
-      return;
+      return false;
     }
 
-    if (formData.phone.length !== 8) {
-      Alert.alert('Алдаа', 'Утасны дугаар 8 оронтой байх ёстой');
-      return;
+    if (formData.phone.length !== 8 || !/^\d+$/.test(formData.phone)) {
+      Alert.alert('Алдаа', 'Утасны дугаар 8 оронтой тоо байх ёстой');
+      return false;
     }
+
+    if (formData.password.length < 6) {
+      Alert.alert('Алдаа', 'Нууц үг хамгийн багадаа 6 тэмдэгттэй байх ёстой');
+      return false;
+    }
+
+    if (formData.registerNumber.length !== 10) {
+      Alert.alert('Алдаа', 'Регистрийн дугаар 10 тэмдэгттэй байх ёстой');
+      return false;
+    }
+
+    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      Alert.alert('Алдаа', 'И-мэйл хаяг буруу байна');
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleRegister = async () => {
+    if (!validateInput()) return;
 
     setIsLoading(true);
-    // TODO: API call to backend
-    setTimeout(() => {
+
+    try {
+      const registerData = {
+        lastName: formData.lastName.trim(),
+        firstName: formData.firstName.trim(),
+        phone: formData.phone.trim(),
+        email: formData.email.trim() || undefined,
+        registerNumber: formData.registerNumber.toUpperCase().trim(),
+        password: formData.password,
+      };
+
+      const response = await authAPI.register(registerData);
+
+      if (response.success && response.token) {
+        await AsyncStorage.setItem('userToken', response.token);
+        if (response.user) {
+          await AsyncStorage.setItem('userData', JSON.stringify(response.user));
+        }
+
+        Alert.alert(
+          'Амжилттай',
+          'Бүртгэл амжилттай үүслээ!',
+          [{ text: 'За', onPress: () => router.replace('/(tabs)/home') }]
+        );
+      } else {
+        throw new Error('Бүртгэл үүсгэхэд алдаа гарлаа');
+      }
+    } catch (err) {
+      console.error('Register error:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Бүртгэл үүсгэхэд алдаа гарлаа';
+      Alert.alert('Алдаа', errorMessage);
+    } finally {
       setIsLoading(false);
-      Alert.alert('Амжилттай', 'Бүртгэл амжилттай үүслээ', [
-        { text: 'За', onPress: () => router.back() },
-      ]);
-    }, 1500);
+    }
   };
 
   return (
@@ -66,11 +117,16 @@ export default function RegisterScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}
         >
-          <ScrollView contentContainerStyle={styles.scrollContent}>
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
             <View style={styles.header}>
               <TouchableOpacity
                 style={styles.backButton}
                 onPress={() => router.back()}
+                disabled={isLoading}
               >
                 <Text style={styles.backButtonText}>←</Text>
               </TouchableOpacity>
@@ -88,9 +144,9 @@ export default function RegisterScreen() {
                   placeholder="Овог"
                   placeholderTextColor="#999"
                   value={formData.lastName}
-                  onChangeText={(text) =>
-                    setFormData({ ...formData, lastName: text })
-                  }
+                  onChangeText={(text) => setFormData({ ...formData, lastName: text })}
+                  editable={!isLoading}
+                  autoCapitalize="words"
                 />
               </View>
 
@@ -103,9 +159,9 @@ export default function RegisterScreen() {
                   placeholder="Нэр"
                   placeholderTextColor="#999"
                   value={formData.firstName}
-                  onChangeText={(text) =>
-                    setFormData({ ...formData, firstName: text })
-                  }
+                  onChangeText={(text) => setFormData({ ...formData, firstName: text })}
+                  editable={!isLoading}
+                  autoCapitalize="words"
                 />
               </View>
 
@@ -121,10 +177,9 @@ export default function RegisterScreen() {
                     placeholderTextColor="#999"
                     keyboardType="phone-pad"
                     value={formData.phone}
-                    onChangeText={(text) =>
-                      setFormData({ ...formData, phone: text })
-                    }
+                    onChangeText={(text) => setFormData({ ...formData, phone: text })}
                     maxLength={8}
+                    editable={!isLoading}
                   />
                 </View>
               </View>
@@ -138,9 +193,8 @@ export default function RegisterScreen() {
                   keyboardType="email-address"
                   autoCapitalize="none"
                   value={formData.email}
-                  onChangeText={(text) =>
-                    setFormData({ ...formData, email: text })
-                  }
+                  onChangeText={(text) => setFormData({ ...formData, email: text })}
+                  editable={!isLoading}
                 />
               </View>
 
@@ -154,10 +208,9 @@ export default function RegisterScreen() {
                   placeholderTextColor="#999"
                   autoCapitalize="characters"
                   value={formData.registerNumber}
-                  onChangeText={(text) =>
-                    setFormData({ ...formData, registerNumber: text })
-                  }
+                  onChangeText={(text) => setFormData({ ...formData, registerNumber: text })}
                   maxLength={10}
+                  editable={!isLoading}
                 />
               </View>
 
@@ -171,10 +224,11 @@ export default function RegisterScreen() {
                   placeholderTextColor="#999"
                   secureTextEntry
                   value={formData.password}
-                  onChangeText={(text) =>
-                    setFormData({ ...formData, password: text })
-                  }
+                  onChangeText={(text) => setFormData({ ...formData, password: text })}
+                  editable={!isLoading}
+                  autoCapitalize="none"
                 />
+                <Text style={styles.hint}>Хамгийн багадаа 6 тэмдэгт</Text>
               </View>
 
               <View style={styles.inputContainer}>
@@ -187,25 +241,29 @@ export default function RegisterScreen() {
                   placeholderTextColor="#999"
                   secureTextEntry
                   value={formData.confirmPassword}
-                  onChangeText={(text) =>
-                    setFormData({ ...formData, confirmPassword: text })
-                  }
+                  onChangeText={(text) => setFormData({ ...formData, confirmPassword: text })}
+                  editable={!isLoading}
+                  autoCapitalize="none"
                 />
               </View>
 
               <TouchableOpacity
-                style={styles.registerButton}
+                style={[styles.registerButton, isLoading && styles.registerButtonDisabled]}
                 onPress={handleRegister}
                 disabled={isLoading}
+                activeOpacity={0.8}
               >
-                <Text style={styles.registerButtonText}>
-                  {isLoading ? 'Бүртгэж байна...' : 'Бүртгүүлэх'}
-                </Text>
+                {isLoading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.registerButtonText}>Бүртгүүлэх</Text>
+                )}
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.loginLink}
                 onPress={() => router.back()}
+                disabled={isLoading}
               >
                 <Text style={styles.loginLinkText}>
                   Бүртгэлтэй юу? <Text style={styles.loginLinkBold}>Нэвтрэх</Text>
@@ -290,6 +348,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
   },
+  hint: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 4,
+    marginLeft: 4,
+  },
   phoneInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -320,6 +384,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
+  },
+  registerButtonDisabled: {
+    opacity: 0.6,
   },
   registerButtonText: {
     fontSize: 16,
